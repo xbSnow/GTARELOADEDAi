@@ -1,0 +1,466 @@
+﻿using MySql.Data.MySqlClient;
+using System;
+using System.Data;
+
+#nullable disable
+
+namespace GTAServer
+{
+    public class Database
+    {
+        private const string connectionString = "Server=localhost;Database=gta;Uid=username;Password=password;";
+
+        private static MySqlConnection Create()
+        {
+            return new MySqlConnection(connectionString);
+        }
+
+        public static Int64 GetMemberCount(string platformName = null)
+        {
+            using (MySqlConnection connection = Create())
+            {
+                Int64 count = -1;
+                try
+                {
+                    connection.Open();
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        if (platformName != null)
+                        {
+                            command.CommandText = "SELECT COUNT(*) FROM members WHERE platform_name=@platform_name";
+                            command.Parameters.AddWithValue("@platform_name", platformName);
+                        }
+                        else
+                        {
+                            command.CommandText = "SELECT COUNT(*) FROM members";
+                        }
+                        count = (Int64)command.ExecuteScalar();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [GetMemberCount] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+                return count;
+            }
+        }
+
+        public static bool GetMemberByXuid(ref Globals.Member member, string xuid)
+        {
+            bool result = false;
+
+            using (MySqlConnection connection = Create())
+            {
+                try
+                {
+                    connection.Open();
+
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "SELECT * FROM members WHERE xuid=@xuid";
+                        command.Parameters.AddWithValue("@xuid", xuid);
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                member.id = reader.GetInt32("id");
+                                member.xuid = reader["xuid"] != DBNull.Value ? reader.GetString("xuid") : string.Empty;
+                                member.gamertag = reader["gamertag"] != DBNull.Value ? reader.GetString("gamertag") : string.Empty;
+                                member.crew_id = reader["crew_id"] != DBNull.Value ? reader.GetString("crew_id") : string.Empty;
+                                member.crew_tag = reader["crew_tag"] != DBNull.Value ? reader.GetString("crew_tag") : string.Empty;
+                                member.expires = reader["expires"] != DBNull.Value ? Convert.ToDateTime(reader["expires"]) : DateTime.MinValue;
+                                member.last_online = reader["last_online"] != DBNull.Value ? Convert.ToDateTime(reader["last_online"]) : DateTime.MinValue;
+                                member.session_ticket = reader["session_ticket"] != DBNull.Value ? reader.GetString("session_ticket") : string.Empty;
+                                member.session_key = reader["session_key"] != DBNull.Value ? reader.GetString("session_key") : string.Empty;
+                                member.linkdiscord = reader["linkdiscord"] != DBNull.Value ? reader.GetInt32("linkdiscord") : 0;
+                                member.discordcode = reader["discordcode"] != DBNull.Value ? reader.GetString("discordcode") : string.Empty;
+                                member.discordid = reader["discordid"] != DBNull.Value ? reader.GetString("discordid") : string.Empty;
+                                member.gsinfo = reader["gsinfo"] != DBNull.Value ? reader.GetString("gsinfo") : string.Empty;
+                                member.gsjoin = reader["gsjoin"] != DBNull.Value ? reader.GetInt32("gsjoin") : 0;
+                                member.gshost = reader["gshost"] != DBNull.Value ? reader.GetInt32("gshost") : 0;
+                                member.banned = reader["banned"] != DBNull.Value ? reader.GetInt32("banned") : 0;
+                                //member.ban_expires = reader["ban_expires"] != DBNull.Value ? reader.GetInt64("ban_expires")
+                                member.ban_expires = reader["ban_expires"] != DBNull.Value ? reader.GetInt64("ban_expires") : 0;
+                                member.cheater_enabled = reader["cheater_enabled"] != DBNull.Value ? reader.GetInt32("cheater_enabled") : 0;
+                                member.cheater_expires = reader["cheater_expires"] != DBNull.Value ? reader.GetInt64("cheater_expires") : 0;
+
+
+
+                                member.platform_name = reader["platform_name"] != DBNull.Value ? reader.GetString("platform_name") : string.Empty;
+
+                                result = true;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DEBUG] [GetMemberByXuid] Exception: {ex.Message}");
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                        connection.Close();
+                }
+            }
+
+            return result;
+        }
+        public static string[] FindSessionByHandle(string xuid)
+        {
+            string[] result = new string[2];
+
+            using (MySqlConnection conn = new MySqlConnection(connectionString))
+            {
+                conn.Open();
+
+                string query = @"
+            SELECT xuid, gsinfo 
+            FROM members 
+            WHERE xuid = @xuid
+            AND gsjoin = 1
+            AND gsinfo IS NOT NULL
+            LIMIT 1";
+
+                using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@xuid", xuid);
+
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            result[0] = reader["xuid"].ToString();
+                            result[1] = reader["gsinfo"].ToString();
+                            return result;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public static bool GetMemberFromSessionTicket(ref Globals.Member member, string session_ticket)
+        {
+            bool result = false;
+
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "SELECT * FROM members WHERE session_ticket=@session_ticket";
+                        command.Parameters.AddWithValue("@session_ticket", session_ticket);
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                member.id = reader.GetInt32("id");
+                                member.xuid = reader["xuid"] != DBNull.Value ? reader.GetString("xuid") : string.Empty;
+                                member.gamertag = reader["gamertag"] != DBNull.Value ? reader.GetString("gamertag") : string.Empty;
+                                member.crew_id = reader["crew_id"] != DBNull.Value ? reader.GetString("crew_id") : string.Empty;
+                                member.crew_tag = reader["crew_tag"] != DBNull.Value ? reader.GetString("crew_tag") : string.Empty;
+                                member.expires = reader["expires"] != DBNull.Value ? Convert.ToDateTime(reader["expires"]) : DateTime.MinValue;
+                                member.last_online = reader["last_online"] != DBNull.Value ? Convert.ToDateTime(reader["last_online"]) : DateTime.MinValue;
+                                member.session_ticket = reader["session_ticket"] != DBNull.Value ? reader.GetString("session_ticket") : string.Empty;
+                                member.session_key = reader["session_key"] != DBNull.Value ? reader.GetString("session_key") : string.Empty;
+                                member.linkdiscord = reader["linkdiscord"] != DBNull.Value ? reader.GetInt32("linkdiscord") : 0;
+                                member.discordcode = reader["discordcode"] != DBNull.Value ? reader.GetString("discordcode") : string.Empty;
+                                member.discordid = reader["discordid"] != DBNull.Value ? reader.GetString("discordid") : string.Empty;
+                                member.gsinfo = reader["gsinfo"] != DBNull.Value ? reader.GetString("gsinfo") : string.Empty;
+                                member.gsjoin = reader["gsjoin"] != DBNull.Value ? reader.GetInt32("gsjoin") : 0;
+                                member.gshost = reader["gshost"] != DBNull.Value ? reader.GetInt32("gshost") : 0;
+                                member.banned = reader["banned"] != DBNull.Value ? reader.GetInt32("banned") : 0;
+                                member.platform_name = reader["platform_name"] != DBNull.Value ? reader.GetString("platform_name") : string.Empty;
+                                result = true;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DEBUG] [GetMemberFromSessionTicket] Exception: {ex.Message}");
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+
+                return result;
+            }
+        }
+
+        public static void AddMember(ref Globals.Member member)
+        {
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "INSERT INTO members (xuid, gamertag, crew_id, crew_tag, expires, last_online, session_ticket, session_key, platform_name) VALUES (@xuid, @gamertag, @crew_id, @crew_tag, @expires, @last_online, @session_ticket, @session_key, @platform_name)";
+                        command.Parameters.AddWithValue("@xuid", member.xuid);
+                        command.Parameters.AddWithValue("@gamertag", member.gamertag);
+                        command.Parameters.AddWithValue("@crew_id", member.crew_id);
+                        command.Parameters.AddWithValue("@crew_tag", member.crew_tag);
+                        command.Parameters.AddWithValue("@expires", member.expires);
+                        command.Parameters.AddWithValue("@last_online", member.last_online);
+                        command.Parameters.AddWithValue("@session_ticket", member.session_ticket);
+                        command.Parameters.AddWithValue("@session_key", member.session_key);
+                        command.Parameters.AddWithValue("@platform_name", member.platform_name);
+                        command.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [AddMember] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+            }
+        }
+
+        public static void UpdateMember(ref Globals.Member member)
+        {
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "UPDATE members SET last_online=@last_online, session_ticket=@session_ticket, session_key=@session_key, platform_name=@platform_name WHERE xuid=@xuid";
+                        command.Parameters.AddWithValue("@xuid", member.xuid);
+                        command.Parameters.AddWithValue("@last_online", member.last_online);
+                        command.Parameters.AddWithValue("@session_ticket", member.session_ticket);
+                        command.Parameters.AddWithValue("@session_key", member.session_key);
+                        command.Parameters.AddWithValue("@platform_name", member.platform_name);
+                        command.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [UpdateMember] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+            }
+        }
+
+        public static void UpdateLastOnline(ref Globals.Member member)
+        {
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "UPDATE members SET last_online=@last_online WHERE session_ticket=@session_ticket";
+                        command.Parameters.AddWithValue("@last_online", member.last_online);
+                        command.Parameters.AddWithValue("@session_ticket", member.session_ticket);
+                        command.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [UpdateLastOnline] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+            }
+        }
+
+        public static bool GetCrewFromCrewId(ref Globals.Crew crew, string crew_id)
+        {
+            bool result = false;
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "SELECT * FROM crews WHERE crew_id=@crew_id";
+                        command.Parameters.AddWithValue("@crew_id", crew_id);
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                crew.id = reader.GetInt32("id");
+                                crew.crew_owner = reader.GetString("crew_owner");
+                                crew.crew_id = reader.GetString("crew_id");
+                                crew.crew_name = reader.GetString("crew_name");
+                                crew.crew_tag = reader.GetString("crew_tag");
+                                crew.crew_motto = reader.GetString("crew_motto");
+                                crew.crew_color = reader.GetString("crew_color");
+                                crew.crew_public = reader.GetInt32("crew_public");
+                                crew.crew_invite = reader.GetString("crew_invite");
+                                result = true;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [GetCrewFromCrewId] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+                return result;
+            }
+        }
+
+        public static bool AttributeExists(string name)
+        {
+            bool result = false;
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME=@table_name AND COLUMN_NAME=@column_name";
+                        command.Parameters.AddWithValue("@table_name", "members");
+                        command.Parameters.AddWithValue("@column_name", name);
+                        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [AttributeExists] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+                return result;
+            }
+        }
+
+        public static void SetAttribute(string name, string value, string session_ticket)
+        {
+            using (MySqlConnection connection = Create())
+            {
+                connection.Open();
+                try
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = string.Format("UPDATE members SET {0}=@value WHERE session_ticket=@session_ticket", name);
+                        command.Parameters.AddWithValue("@value", value);
+                        command.Parameters.AddWithValue("@session_ticket", session_ticket);
+                        command.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(string.Format("[DEBUG] [SetAttribute] Exception: {0}", ex.Message));
+                }
+                finally
+                {
+                    if (connection.State == ConnectionState.Open)
+                    {
+                        connection.Close();
+                    }
+                }
+            }
+        }
+
+        public static string[] FindSession(string sessionTicket, string platformName)
+        {
+            string[] result = new string[] { string.Empty, string.Empty };
+
+            using (MySqlConnection connection = Create())
+            {
+                try
+                {
+                    connection.Open();
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                    SELECT gamertag, xuid, gsinfo 
+                    FROM members 
+                    WHERE last_online > NOW() - INTERVAL 3 MINUTE 
+                      AND session_ticket != @session_ticket 
+                      AND gsjoin = 1 
+                    LIMIT 1";
+
+                        command.Parameters.AddWithValue("@session_ticket", sessionTicket);
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                if (platformName == "ps3")
+                                {
+                                    result[0] = reader.GetString("gamertag");
+                                }
+                                else
+                                {
+                                    string xuidStr = reader.GetString("xuid");
+                                    if (UInt64.TryParse(xuidStr, out UInt64 ulXuid))
+                                    {
+                                        result[0] = ulXuid.ToString("X").TrimStart('0');
+                                    }
+                                    else
+                                    {
+                                        result[0] = xuidStr;
+                                    }
+                                }
+                                result[1] = reader.GetString("gsinfo");
+                                return result;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DEBUG] [FindSession] Exception: {ex.Message}");
+                }
+            }
+            return result;
+        }
+    }
+}

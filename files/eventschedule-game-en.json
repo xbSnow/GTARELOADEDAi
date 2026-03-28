@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "id": "double_rp_weekend",
+      "name": "Double RP Weekend",
+      "description": "Earn double RP on all missions and activities!",
+      "startDate": "2026-01-20T00:00:00Z",
+      "endDate": "2026-01-23T23:59:59Z",
+      "active": true,
+      "platform": "ps3"
+    },
+    {
+      "id": "bonus_cash",
+      "name": "Bonus Cash Event",
+      "description": "Get 50% extra cash on heists and missions",
+      "startDate": "2026-01-20T00:00:00Z",
+      "endDate": "2026-01-23T23:59:59Z",
+      "active": true,
+      "platform": "ps3"
+    }
+  ],
+  "version": "1.0",
+  "lastUpdated": "2026-01-20T00:00:00Z"
+  {"multiplayerEvents":[]}
+}
