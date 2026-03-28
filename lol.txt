@@ -1,0 +1,31 @@
+private static readonly string snapmatikWebhookUrl = "SNAPMATIK_WEBHOOK";
+
+var response = await client.PostAsync(snapmatikWebhookUrl, form);
+
+
+
+
+
+long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+// Check if player is assigned to cheater lobby
+bool isInCheaterLobby = member.cheater_enabled == 1;
+
+// Load XML response
+XmlDocument doc = new XmlDocument();
+doc.Load("bin/auth/CreateTicketResponse.xml");
+
+XmlNode privilegesNode = doc.GetElementsByTagName("Privileges")[0];
+
+// Send privilege 20 if cheater
+if (isInCheaterLobby)
+{
+    privilegesNode.InnerText = "20";
+}
+else
+{
+    privilegesNode.InnerText = "1,2,3,4,5,6,8,9,10,11,14,15,16,17,18,19,21,22";
+}
+
+// Debug so you know it actually worked
+Console.WriteLine("Privileges sent: " + privilegesNode.InnerText);
